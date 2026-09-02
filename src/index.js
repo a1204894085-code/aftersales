@@ -3226,7 +3226,15 @@ var index_default = {
         return serveFile(request, env22, decodeURIComponent(path.slice("/files/".length)));
       }
       if (!path.startsWith("/api/")) {
-        if (env22.ASSETS) return env22.ASSETS.fetch(request);
+        if (env22.ASSETS) {
+          const assetRes = await env22.ASSETS.fetch(request);
+          if (/\.(js|css|html)$/i.test(path) || path === "/" || path === "") {
+            const headers = new Headers(assetRes.headers);
+            headers.set("Cache-Control", "no-store, max-age=0, must-revalidate");
+            return new Response(assetRes.body, { status: assetRes.status, headers });
+          }
+          return assetRes;
+        }
         return new Response("Not Found", { status: 404 });
       }
       const method = request.method;

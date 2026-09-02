@@ -406,6 +406,12 @@
     wrap.appendChild(buildLabel(f));
     const input = makeInput(f, { placeholder: f.type === 'manager' ? '请输入经理名' : '请输入' + f.label });
     if (f.type === 'manager' && state.user) input.value = state.user.manager_name || '';
+    if (f.key === 'quantity' && !input.value) input.value = '1';
+    if (f.key === 'payable_amount') {
+      input.readOnly = true;
+      input.tabIndex = -1;
+      input.placeholder = '单价 × 数量';
+    }
     wrap.appendChild(input);
     return wrap;
   }
@@ -418,16 +424,16 @@
     state.fields.forEach((f) => {
       grid.appendChild(createFieldEl(f));
     });
-    bindComputedFields();
+    recalcPayable();
   }
 
   function fieldInput(key) {
-    const el = $('formGrid').querySelector(`.field[data-key="${key}"]`);
-    return el && el.querySelector('input, select');
+    const grid = $('formGrid');
+    if (!grid) return null;
+    return grid.querySelector(`input[data-key="${key}"], select[data-key="${key}"]`);
   }
 
   function recalcPayable() {
-    if (!state.fields.some((f) => f.key === 'payable_amount')) return;
     const outEl = fieldInput('payable_amount');
     if (!outEl) return;
     const priceEl = fieldInput('unit_price');
@@ -435,28 +441,12 @@
     const priceRaw = priceEl ? String(priceEl.value).trim() : '';
     const qtyRaw = qtyEl ? String(qtyEl.value).trim() : '';
     const price = Number(priceRaw);
-    const qty = Number(qtyRaw);
-    if (priceRaw !== '' && qtyRaw !== '' && Number.isFinite(price) && Number.isFinite(qty)) {
-      outEl.value = (price * qty).toFixed(2);
+    const qty = qtyRaw === '' ? 1 : Number(qtyRaw);
+    if (priceRaw !== '' && Number.isFinite(price) && Number.isFinite(qty)) {
+      outEl.value = (Math.round(price * qty * 100) / 100).toFixed(2);
     } else {
       outEl.value = '';
     }
-  }
-
-  function bindComputedFields() {
-    const payable = state.fields.find((f) => f.key === 'payable_amount');
-    if (!payable) return;
-    const outEl = fieldInput('payable_amount');
-    if (outEl) {
-      outEl.readOnly = true;
-      outEl.tabIndex = -1;
-      outEl.placeholder = '单价 × 数量';
-    }
-    ['unit_price', 'quantity'].forEach((k) => {
-      const el = fieldInput(k);
-      if (el) el.addEventListener('input', recalcPayable);
-    });
-    recalcPayable();
   }
 
   function renderImageThumbs(f) {
@@ -694,6 +684,15 @@
     }
     return null;
   }
+
+  $('recordForm').addEventListener('input', (e) => {
+    const key = e.target && e.target.dataset && e.target.dataset.key;
+    if (key === 'unit_price' || key === 'quantity' || key === 'product_name') recalcPayable();
+  });
+  $('recordForm').addEventListener('change', (e) => {
+    const key = e.target && e.target.dataset && e.target.dataset.key;
+    if (key === 'unit_price' || key === 'quantity' || key === 'product_name') recalcPayable();
+  });
 
   $('recordForm').addEventListener('submit', async (e) => {
     e.preventDefault();
