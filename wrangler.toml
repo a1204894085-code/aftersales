@@ -1,0 +1,17 @@
+name = "aftersales"
+main = "src/index.js"
+compatibility_date = "2024-11-01"
+compatibility_flags = ["nodejs_compat"]
+
+[assets]
+directory = "./public"
+binding = "ASSETS"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "aftersales"
+database_id = "7cc49a41-9dac-4ae9-9b7e-3431091cb849"
+
+[[r2_buckets]]
+binding = "FILES"
+bucket_name = "aftersales-files"
