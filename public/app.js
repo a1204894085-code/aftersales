@@ -21,6 +21,7 @@
     { key: 'product_name', label: '产品名称', type: 'product', target: 'unit_price' },
     { key: 'quantity', label: '数量', type: 'number' },
     { key: 'unit_price', label: '单价（元）', type: 'number' },
+    { key: 'payable_amount', label: '应付金额（元）', type: 'number' },
     { key: 'refund_amount', label: '退款金额（元）', type: 'number' },
     { key: 'aftersale_type', label: '售后类型', type: 'select', options: ['退货退款', '仅退款', '运费'] },
     { key: 'reason', label: '售后原因', type: 'text' },
@@ -417,6 +418,45 @@
     state.fields.forEach((f) => {
       grid.appendChild(createFieldEl(f));
     });
+    bindComputedFields();
+  }
+
+  function fieldInput(key) {
+    const el = $('formGrid').querySelector(`.field[data-key="${key}"]`);
+    return el && el.querySelector('input, select');
+  }
+
+  function recalcPayable() {
+    if (!state.fields.some((f) => f.key === 'payable_amount')) return;
+    const outEl = fieldInput('payable_amount');
+    if (!outEl) return;
+    const priceEl = fieldInput('unit_price');
+    const qtyEl = fieldInput('quantity');
+    const priceRaw = priceEl ? String(priceEl.value).trim() : '';
+    const qtyRaw = qtyEl ? String(qtyEl.value).trim() : '';
+    const price = Number(priceRaw);
+    const qty = Number(qtyRaw);
+    if (priceRaw !== '' && qtyRaw !== '' && Number.isFinite(price) && Number.isFinite(qty)) {
+      outEl.value = (price * qty).toFixed(2);
+    } else {
+      outEl.value = '';
+    }
+  }
+
+  function bindComputedFields() {
+    const payable = state.fields.find((f) => f.key === 'payable_amount');
+    if (!payable) return;
+    const outEl = fieldInput('payable_amount');
+    if (outEl) {
+      outEl.readOnly = true;
+      outEl.tabIndex = -1;
+      outEl.placeholder = '单价 × 数量';
+    }
+    ['unit_price', 'quantity'].forEach((k) => {
+      const el = fieldInput(k);
+      if (el) el.addEventListener('input', recalcPayable);
+    });
+    recalcPayable();
   }
 
   function renderImageThumbs(f) {
@@ -535,6 +575,7 @@
         const targetInput = el && el.querySelector('input');
         if (targetInput) targetInput.value = money(item.price);
       }
+      recalcPayable();
     } else {
       input.value = item.dealer_name;
       const tg = f.targets || {};

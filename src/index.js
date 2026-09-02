@@ -3742,10 +3742,25 @@ function normalizeRecordData(template, raw, user) {
       data[f.key] = String(v == null ? "" : v).trim();
     }
   }
-  return data;
+  return applyComputedFields(template, data);
 }
 __name(normalizeRecordData, "normalizeRecordData");
 __name2(normalizeRecordData, "normalizeRecordData");
+function applyComputedFields(template, data) {
+  const keys = new Set((template.fields || []).map((f) => f.key));
+  if (keys.has("payable_amount") && keys.has("unit_price") && keys.has("quantity")) {
+    const price = Number(data.unit_price);
+    const qty = Number(data.quantity);
+    if (data.unit_price !== "" && data.quantity !== "" && Number.isFinite(price) && Number.isFinite(qty)) {
+      data.payable_amount = Math.round(price * qty * 100) / 100;
+    } else {
+      data.payable_amount = "";
+    }
+  }
+  return data;
+}
+__name(applyComputedFields, "applyComputedFields");
+__name2(applyComputedFields, "applyComputedFields");
 function recordRequiredError(template, data) {
   const fieldMap = {};
   for (const f of template.fields) fieldMap[f.key] = f;
