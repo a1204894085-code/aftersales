@@ -443,9 +443,11 @@
     const price = Number(priceRaw);
     const qty = qtyRaw === '' ? 1 : Number(qtyRaw);
     if (priceRaw !== '' && Number.isFinite(price) && Number.isFinite(qty)) {
+      outEl.placeholder = '单价 × 数量';
       outEl.value = (Math.round(price * qty * 100) / 100).toFixed(2);
     } else {
       outEl.value = '';
+      outEl.placeholder = priceRaw === '' ? '请先选择产品/填写单价' : '请填写有效数量';
     }
   }
 
@@ -511,6 +513,13 @@
     input.addEventListener('input', () => {
       if (f.type === 'product') showProductSuggest(f, input);
       else showDealerSuggest(f, input);
+    });
+    input.addEventListener('blur', () => {
+      if (f.type !== 'product') return;
+      const name = input.value.trim();
+      if (!name) return;
+      const hit = state.products.find((p) => p.name === name);
+      if (hit) selectSuggestValue(f, input, hit);
     });
     input.addEventListener('focus', () => {
       if (f.type === 'product') {
