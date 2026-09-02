@@ -274,8 +274,13 @@
     $('formTitle').textContent = t.name + '信息登记';
     $('listTitle').textContent = t.name + '记录';
     renderForm();
-    $('startDate').value = todayStr();
-    $('endDate').value = todayStr();
+    if (state.fields.some((f) => f.type === 'date')) {
+      $('startDate').value = todayStr();
+      $('endDate').value = todayStr();
+    } else {
+      $('startDate').value = '';
+      $('endDate').value = '';
+    }
     $('keyword').value = '';
     renderMenu();
     await loadRecords();
@@ -620,7 +625,7 @@
   document.addEventListener('click', (e) => {
     Object.keys(state.suggest).forEach((k) => {
       const st = state.suggest[k];
-      if (st && st.list && !st.list.closest('.field').contains(e.target)) hideSuggest({ key: k });
+      if (st && st.list && !st.list.closest('.field')?.contains(e.target)) hideSuggest({ key: k });
     });
   });
 

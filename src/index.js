@@ -3683,27 +3683,24 @@ function templateRecordWhere(template, query) {
   const conds = [];
   let label = "";
   const dk = primaryDateKey(template.fields);
-  const dateField = /* @__PURE__ */ __name((k) => `json_extract(data, '$.${k}')`, "dateField");
+  const dateExpr = dk ? `json_extract(data, '$.${dk}')` : "substr(created_at, 1, 10)";
   if (isDate(query.date)) {
-    conds.push(`${dateField(dk || "created_at")} = ?`);
+    conds.push(`${dateExpr} = ?`);
     params.push(query.date);
     label = `-${query.date}`;
   }
   if (isDate(query.start) && isDate(query.end)) {
-    conds.push(`${dateField(dk || "created_at")} >= ? AND ${dateField(dk || "created_at")} <= ?`);
+    conds.push(`${dateExpr} >= ? AND ${dateExpr} <= ?`);
     params.push(query.start, query.end);
     label = `-${query.start}_\u81F3_${query.end}`;
   } else if (isDate(query.start)) {
-    conds.push(`${dateField(dk || "created_at")} >= ?`);
+    conds.push(`${dateExpr} >= ?`);
     params.push(query.start);
     label = `-${query.start}_\u8D77`;
   } else if (isDate(query.end)) {
-    conds.push(`${dateField(dk || "created_at")} <= ?`);
+    conds.push(`${dateExpr} <= ?`);
     params.push(query.end);
     label = `-\u622A\u81F3_${query.end}`;
-  }
-  if (!dk) {
-    conds[conds.length - 1] = conds[conds.length - 1].replace(dateField("created_at"), "substr(created_at, 1, 10)");
   }
   const q = String(query.q || "").trim();
   if (q) {
