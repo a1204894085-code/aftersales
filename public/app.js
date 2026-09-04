@@ -12,7 +12,8 @@
     image: '图片上传',
     product: '产品选择',
     dealer: '经销商选择',
-    manager: '经理名'
+    manager: '经理名',
+    pick: '固定选项（可搜索）'
   };
 
   /* 预置字段库（管理员添加字段时可选） */
@@ -47,7 +48,8 @@
     products: [],
     allDealers: [],
     editingFields: [],
-    editingTplId: null
+    editingTplId: null,
+    autoTouched: {}
   };
 
   /* ---------------- 工具 ---------------- */
@@ -403,6 +405,23 @@
       return wrap;
     }
 
+    if (f.type === 'pick') {
+      wrap.appendChild(buildLabel(f));
+      const sw = document.createElement('div');
+      sw.className = 'suggest-wrap';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.dataset.key = f.key;
+      input.autocomplete = 'off';
+      input.placeholder = '输入关键字选择' + f.label;
+      const list = createSuggestList();
+      sw.appendChild(input);
+      sw.appendChild(list);
+      wrap.appendChild(sw);
+      bindPickInput(f, input, list);
+      return wrap;
+    }
+
     wrap.appendChild(buildLabel(f));
     const input = makeInput(f, { placeholder: f.type === 'manager' ? '请输入经理名' : '请输入' + f.label });
     if (f.type === 'manager' && state.user) input.value = state.user.manager_name || '';
@@ -421,6 +440,7 @@
     grid.innerHTML = '';
     state.formValues = {};
     state.suggest = {};
+    state.autoTouched = {};
     state.fields.forEach((f) => {
       grid.appendChild(createFieldEl(f));
     });
@@ -449,6 +469,21 @@
       outEl.value = '';
       outEl.placeholder = priceRaw === '' ? '请先选择产品/填写单价' : '请填写有效数量';
     }
+    autoFillFromPayable();
+  }
+
+  /* 字段配置 auto_from=payable_amount 时（如“实际打款金额”），默认同步应付金额，用户手改后不再覆盖 */
+  function autoFillFromPayable() {
+    const srcEl = fieldInput('payable_amount');
+    if (!srcEl) return;
+    const val = srcEl.value;
+    state.fields.forEach((f) => {
+      if (f.auto_from !== 'payable_amount') return;
+      if (state.autoTouched[f.key]) return;
+      const el = fieldInput(f.key);
+      if (!el) return;
+      el.value = val;
+    });
   }
 
   function renderImageThumbs(f) {
@@ -550,6 +585,64 @@
         hideSuggest(f);
       }
     });
+  }
+
+  /* 固定选项可搜索选择（type=pick） */
+  function bindPickInput(f, input, list) {
+    state.suggest[f.key] = { matches: [], index: -1, list };
+    input.addEventListener('input', () => showPickSuggest(f, input));
+    input.addEventListener('focus', () => showPickSuggest(f, input));
+    input.addEventListener('keydown', (e) => {
+      const st = state.suggest[f.key];
+      const items = [...list.querySelectorAll('li:not(.empty)')];
+      if (items.length === 0) return;
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        st.index = (st.index + 1) % items.length;
+        highlightSuggest(list, st.index);
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        st.index = (st.index - 1 + items.length) % items.length;
+        highlightSuggest(list, st.index);
+      } else if (e.key === 'Enter') {
+        if (st.index >= 0 && st.matches[st.index]) {
+          e.preventDefault();
+          selectPickValue(f, input, st.matches[st.index]);
+        }
+      } else if (e.key === 'Escape') {
+        hideSuggest(f);
+      }
+    });
+  }
+
+  function showPickSuggest(f, input) {
+    const st = state.suggest[f.key];
+    const kw = input.value.trim().toLowerCase();
+    const opts = f.options || [];
+    const matched = kw ? opts.filter((o) => o.toLowerCase().includes(kw)) : opts;
+    st.list.innerHTML = '';
+    st.index = -1;
+    if (matched.length === 0) {
+      const li = document.createElement('li');
+      li.className = 'empty';
+      li.textContent = kw ? '无匹配选项，可直接输入自定义内容' : '暂无可用选项';
+      st.list.appendChild(li);
+      st.list.hidden = false;
+      return;
+    }
+    matched.slice(0, 12).forEach((o) => {
+      const li = document.createElement('li');
+      li.textContent = o;
+      li.addEventListener('mousedown', (e) => { e.preventDefault(); selectPickValue(f, input, o); });
+      st.list.appendChild(li);
+    });
+    st.matches = matched.slice(0, 12);
+    st.list.hidden = false;
+  }
+
+  function selectPickValue(f, input, val) {
+    input.value = val;
+    hideSuggest(f);
   }
 
   function highlightSuggest(list, idx) {
@@ -696,10 +789,14 @@
 
   $('recordForm').addEventListener('input', (e) => {
     const key = e.target && e.target.dataset && e.target.dataset.key;
+    if (!key) return;
+    state.autoTouched[key] = true;
     if (key === 'unit_price' || key === 'quantity' || key === 'product_name') recalcPayable();
   });
   $('recordForm').addEventListener('change', (e) => {
     const key = e.target && e.target.dataset && e.target.dataset.key;
+    if (!key) return;
+    state.autoTouched[key] = true;
     if (key === 'unit_price' || key === 'quantity' || key === 'product_name') recalcPayable();
   });
 
@@ -774,7 +871,7 @@
       cols.forEach((c) => {
         const td = document.createElement('td');
         if (c.type === 'number') td.className = 'td-num';
-        else if (c.type === 'select' || c.type === 'date' || c.type === 'manager') td.className = 'td-center';
+        else if (c.type === 'select' || c.type === 'date' || c.type === 'manager' || c.type === 'pick') td.className = 'td-center';
         if (c.type === 'image') {
           const shots = Array.isArray(data[c.key]) ? data[c.key] : [];
           if (shots.length === 0) {
@@ -1327,11 +1424,11 @@
     opts.appendChild(dupChk);
     opts.appendChild(inListChk);
 
-    if (f.type === 'select') {
+    if (f.type === 'select' || f.type === 'pick') {
       const optLine = document.createElement('div');
       optLine.className = 'ff-opt-line';
       const optLabel = document.createElement('span');
-      optLabel.textContent = '下拉选项';
+      optLabel.textContent = '可选项';
       const optInput = document.createElement('input');
       optInput.className = 'ff-options';
       optInput.value = (f.options || []).join('，');
@@ -1500,9 +1597,9 @@
     });
     const optsInput = document.createElement('input');
     optsInput.className = 'ff-custom-opts';
-    optsInput.placeholder = '下拉选项（逗号分隔，选下拉类型时填）';
+    optsInput.placeholder = '可选项（逗号分隔，选“下拉选项/固定选项（可搜索）”时填）';
     optsInput.hidden = true;
-    typeSel.addEventListener('change', () => { optsInput.hidden = typeSel.value !== 'select'; });
+    typeSel.addEventListener('change', () => { optsInput.hidden = typeSel.value !== 'select' && typeSel.value !== 'pick'; });
     const add = document.createElement('button');
     add.type = 'button';
     add.className = 'btn btn-primary';
@@ -1512,9 +1609,9 @@
       if (!label) return toast('请输入字段名称', true);
       const type = typeSel.value;
       const f = { key: nextFieldKey(), label, type, required: false, in_list: true, dup_check: false, options: [], condition_required: [], target: '', targets: {} };
-      if (type === 'select') {
+      if (type === 'select' || type === 'pick') {
         f.options = optsInput.value.split(/[,，]/).map((s) => s.trim()).filter(Boolean);
-        if (f.options.length === 0) return toast('下拉字段至少需要一个选项', true);
+        if (f.options.length === 0) return toast('下拉/选项字段至少需要一个选项', true);
       }
       state.editingFields.push(f);
       renderFieldList();

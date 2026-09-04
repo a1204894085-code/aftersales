@@ -3607,9 +3607,9 @@ async function exportExcel(request, env22, query) {
 }
 __name(exportExcel, "exportExcel");
 __name2(exportExcel, "exportExcel");
-var FIELD_TYPES = ["text", "number", "date", "select", "image", "product", "dealer", "manager"];
-var STYLE_BY_TYPE = { number: 4, date: 3, image: 6, text: 2, select: 3, product: 2, dealer: 3, manager: 3 };
-var WIDTH_BY_TYPE = { number: 10, date: 12, image: 46, text: 24, select: 14, product: 24, dealer: 14, manager: 12 };
+var FIELD_TYPES = ["text", "number", "date", "select", "image", "product", "dealer", "manager", "pick"];
+var STYLE_BY_TYPE = { number: 4, date: 3, image: 6, text: 2, select: 3, product: 2, dealer: 3, manager: 3, pick: 2 };
+var WIDTH_BY_TYPE = { number: 10, date: 12, image: 46, text: 24, select: 14, product: 24, dealer: 14, manager: 12, pick: 24 };
 function normalizeFields(raw) {
   if (!Array.isArray(raw)) return { error: "\u5B57\u6BB5\u914D\u7F6E\u5FC5\u987B\u662F\u6570\u7EC4" };
   const seen = /* @__PURE__ */ new Set();
@@ -3626,7 +3626,7 @@ function normalizeFields(raw) {
     seen.add(key);
     if (!FIELD_TYPES.includes(type)) return { error: `\u5B57\u6BB5\u300C${label}\u300D\u7684\u7C7B\u578B\u4E0D\u5408\u6CD5` };
     const options = [];
-    if (type === "select") {
+    if (type === "select" || type === "pick") {
       const opts = (Array.isArray(f.options) ? f.options : []).map((o) => String(o).trim()).filter(Boolean);
       if (opts.length === 0) return { error: `\u4E0B\u62C9\u5B57\u6BB5\u300C${label}\u300D\u81F3\u5C11\u9700\u8981\u4E00\u4E2A\u9009\u9879` };
       options.push(...opts);
@@ -3644,6 +3644,7 @@ function normalizeFields(raw) {
       target: String(f.target || ""),
       targets: f.targets && typeof f.targets === "object" ? { name: String(f.targets.name || ""), card: String(f.targets.card || ""), bank: String(f.targets.bank || "") } : {},
       default_today: !!f.default_today,
+      auto_from: String(f.auto_from || ""),
       sort: sort++
     });
   }
